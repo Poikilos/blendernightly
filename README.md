@@ -10,4 +10,10 @@ Update to the latest Blender automatic (nightly) builds using this web-based ins
 * Click "Install" button
 
 ## Known Issues
-* implement download and install: pre-release only shows url in console (does nothing else)
+* test on Windows
+
+## Developer Notes
+
+### poikilos work log
+* ~8hrs code in "initial commit" (actually 2nd, but first with code)
+* ~9.5hrs "first working version" commit
