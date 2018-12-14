@@ -22,4 +22,4 @@ Update to the latest Blender automatic (nightly) builds using this web-based ins
 * ~8hrs code in "initial commit" (actually 2nd, but first with code)
 (2018-12-13)
 * ~9.5hrs "first working version" commit
-* ~1hr test and fix on Windows
+* ~1.5hrs test and fix on Windows
