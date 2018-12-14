@@ -136,7 +136,7 @@ def make_shortcut(meta, program_name):
             print("WARNING: could not mark icon as executable")
     elif sc_ext == "bat":
         outs = open(sc_path, 'w')
-        outs.write('start "' + bin_path + '"' + "\n")
+        outs.write('"' + bin_path + '"' + "\n")
         outs.close()
     else:
         msg = "unknown shortcut format " + sc_ext
@@ -257,6 +257,11 @@ def d_click(meta):
         push_label(msg)
         print(msg)
 
+    msg = "checking tmp..."
+    count_label.config(text=msg)
+    master.update()
+    # push_label(msg)
+    print(msg)
     subdirs = bw.get_subdir_names(tmp_path)
     ext_path = tmp_path
     if len(subdirs) == 1:
@@ -276,6 +281,12 @@ def d_click(meta):
         print("  Detected windows-like (multi-folder) archive, used '" +
               ext_path + "' as program root")
     tar.close()
+
+    msg = "moving from tmp..."
+    count_label.config(text=msg)
+    master.update()
+    # push_label(msg)
+    print(msg)
 
     remove_tmp = False
     if not ok:
@@ -300,7 +311,8 @@ def d_click(meta):
     if ok:
         try:
             shutil.move(ext_path, installed_path)
-            push_label("Finished installing.")
+            count_label.config(text="Finished installing.")
+            master.update()
             meta['installed_bin'] = bw.get_installed_bin(
                 versions_path,
                 meta['id'],
@@ -313,6 +325,8 @@ def d_click(meta):
         except:
             msg = "Could not finish moving"
             push_label(msg)
+            count_label.config(text="Installation failed.")
+            master.update()
             push_label("to " + meta['id'])
             print("  from (extracted) '" + ext_path + "'")
             print(msg)

@@ -2,7 +2,7 @@
 Update to the latest Blender automatic (nightly) builds using this web-based installer (with multi-version support).
 
 ## Usage
-* Install Python (install `python3` package on GNU+Linux systems; on Windows, download and install from [python.org](http://www.python.org))
+* Install Python--on Windows, "Add Python 3.x to PATH" option is recommended BEFORE clicking "Install Now". (install `python3` package on GNU+Linux systems; on Windows, download and install from [python.org](http://www.python.org))
 * Download this program then Extract All
 * Make sure you are connected to the internet
 * Double-click update.pyw (on Windows, open With: "C:\Python??\pythonw.exe")
@@ -10,7 +10,7 @@ Update to the latest Blender automatic (nightly) builds using this web-based ins
 * Click "Install" button
 
 ## Known Issues
-* test on Windows
+* hangs on start on older versions of Python on Windows (Python 3.2.5, Python 2.7.10)
 
 ## Developer Notes
 
