@@ -141,6 +141,10 @@ def make_shortcut(meta, program_name):
         outs = open(sc_path, 'w')
         outs.write('"' + bin_path + '"' + "\n")
         outs.close()
+    elif sc_ext == "command":
+        outs = open(sc_path, 'w')
+        outs.write('"' + bin_path + '"' + "\n")
+        outs.close()
     else:
         msg = "unknown shortcut format " + sc_ext
         push_label("Cannot create shortcut since")

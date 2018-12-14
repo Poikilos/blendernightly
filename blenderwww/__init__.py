@@ -285,8 +285,10 @@ class LinkManager:
                 appdatas_path = os.path.join(profile_path, "AppData")
                 appdata_path = os.path.join(appdatas_path, "Local")
             else:
-                print("ERROR: missing HOME variable")
+                print("ERROR: missing USERPROFILE variable")
         else:
+            if "darwin" in platform.system().lower():
+                self.shortcut_ext = "command"
             if 'HOME' in os.environ:
                 profile_path = os.environ['HOME']
                 appdata_path = os.path.join(profile_path, ".config")

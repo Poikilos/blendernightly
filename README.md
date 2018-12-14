@@ -14,6 +14,7 @@ Update to the latest Blender automatic (nightly) builds using this web-based ins
 
 ## Known Issues
 * hangs on start on older versions of Python on Windows (Python 3.2.5, Python 2.7.10)
+* macOS support added but not tested
 
 ## Developer Notes
 
