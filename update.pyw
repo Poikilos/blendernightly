@@ -35,7 +35,8 @@ except:
     exit(1)
 
 root.wm_title("Blender Nightly Update")
-root.geometry('300x300')
+base_height = 300
+root.geometry('300x' + str(base_height))
 master = root
 urls = None
 count_label = None
@@ -530,6 +531,26 @@ def refresh():
     # refresh_btn.pack(fill="x")
     # refresh_btn.config(fg='black')
     refresh_btn.config(state=tk.NORMAL)
+    expand = 0
+    old_bottom = count_label.winfo_y() + count_label.winfo_height()
+    # if len(d_buttons) > 2:
+    master.update()
+    # use max heights to resize window,
+    # since widget height is 0 if crushed by window:
+    btn_h_max = refresh_btn.winfo_height()
+    label_h_max = count_label.winfo_height()
+    for i in range(0, len(d_buttons)):
+        if d_buttons[i].winfo_height() > btn_h_max:
+            btn_h_max = d_buttons[i].winfo_height()
+        expand += btn_h_max
+    for i in range(0, len(msg_labels)):
+        if msg_labels[i].winfo_height() > label_h_max:
+            label_h_max = msg_labels[i].winfo_height()
+        expand += label_h_max
+    if expand > 0:
+        print("expand: " + str(expand))
+        # master.config(height=master.winfo_width()+expand)
+        root.geometry('300x' + str(old_bottom+expand))
 
 thread1 = None
 def start_refresh():
