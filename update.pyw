@@ -94,6 +94,9 @@ def make_shortcut(meta, program_name):
     if version is not None:
         sc_name += " " + version
     sc_label_s = sc_name[0].upper() + sc_name[1:]
+    if sc_ext != "desktop":
+        # filename is visible if not "desktop" format, so capitalize
+        sc_name = sc_label_s
     if len(sc_ext) > 0:
         sc_name += "." + sc_ext
         sc_src_name += "." + sc_ext
