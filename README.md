@@ -1,5 +1,6 @@
 # blender-nightly
 Update to the latest Blender automatic (nightly) builds using this web-based installer (with multi-version support).
+![screenshot](https://raw.githubusercontent.com/poikilos/blendernightly/master/screenshot.png)
 
 ## Install
 * Install Python--on Windows, "Add Python 3.x to PATH" option is recommended BEFORE clicking "Install Now". (install `python3` package on GNU+Linux systems; on Windows, download and install from [python.org](http://www.python.org))
