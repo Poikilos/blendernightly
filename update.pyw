@@ -88,15 +88,18 @@ def make_shortcut(meta, program_name):
         push_label(msg)
         print(msg)
         return False
-    sc_name = program_name + " "
+    sc_name = program_name
     version = meta.get('version')
     sc_src_name = program_name
     if version is not None:
-        sc_name += version
+        sc_name += " " + version
+    sc_label_s = sc_name[0].upper() + sc_name[1:]
     if len(sc_ext) > 0:
         sc_name += "." + sc_ext
         sc_src_name += "." + sc_ext
-    sc_path = os.path.join(desktop_path, meta['version'])
+    else:
+        print("WARNING: Shortcut extension is unknown for your platform.")
+    sc_path = os.path.join(desktop_path, sc_name)
 
     user_downloads_path = mgr.get_downloads_path()
     bn_path = os.path.join(user_downloads_path, "blendernightly")
@@ -120,10 +123,17 @@ def make_shortcut(meta, program_name):
                 for line_orig in ins:
                     line = line_orig.rstrip()
                     exec_flag = "Exec="
+                    name_flag = "Name="
                     if line[:len(exec_flag)] == exec_flag:
                         outs.write(exec_flag + bin_path + "\n")
+                    elif line[:len(name_flag)] == name_flag:
+                        outs.write(name_flag + sc_label_s + "\n")
                     else:
                         outs.write(line + "\n")
+        try:
+            os.chmod(sc_path, 0o755)  # leading 0o denotes octal
+        except:
+            print("WARNING: could not mark icon as executable")
     elif sc_ext == "bat":
         outs = open(sc_path, 'w')
         outs.write('start "' + bin_path + '"' + "\n")
