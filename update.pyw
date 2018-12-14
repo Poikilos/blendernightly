@@ -155,6 +155,7 @@ def d_click(meta):
     global pbar
     for btn in d_buttons:
         btn.config(state=tk.DISABLED)
+    refresh_btn.config(state=tk.DISABLED)
     btn = meta.get('button')
     if btn is not None:
         btn.pack_forget()
@@ -193,6 +194,7 @@ def d_click(meta):
             count_label.config(text=msg)
             for btn in d_buttons:
                 btn.config(state=tk.NORMAL)
+            refresh_btn.config(state=tk.NORMAL)
             master.update()
             return
     if not os.path.isfile(archive_path):
@@ -238,6 +240,7 @@ def d_click(meta):
     if tar is None:
         for btn in d_buttons:
             btn.config(state=tk.NORMAL)
+        refresh_btn.config(state=tk.NORMAL)
         return
     else:
         print("  fmt: " + fmt)
@@ -344,6 +347,7 @@ def d_click(meta):
 
     for btn in d_buttons:
         btn.config(state=tk.NORMAL)
+    refresh_btn.config(state=tk.NORMAL)
     master.update()
 
 def refresh():
