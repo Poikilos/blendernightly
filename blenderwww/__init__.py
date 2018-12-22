@@ -140,6 +140,7 @@ class DownloadPageParser(HTMLParser):
         if tag.lower() == "html":
             self.urls = []
             print("CLEARED dl list since found <html...")
+            # print("Links:  # with '" + str(self.must_contain) + "'")
         if self.verbose:
             print(" " * len(self.tag_stack) + "push: " + str(tag))
         self.tag_stack.append(tag)
@@ -148,8 +149,11 @@ class DownloadPageParser(HTMLParser):
         href = attr_d.get("href")
         if href is not None:
             if (self.must_contain is None) or (self.must_contain in href):
-                # print(href)
+                # print("  - " + href)
                 self.urls.append(href)
+            else:
+                pass
+                # print("#  - " + href)
         if self.verbose:
             # print(" " * len(self.tag_stack) + "attrs: " + str(attrs))
             print(" " * len(self.tag_stack) + "attr_d: " + str(attr_d))
@@ -341,11 +345,41 @@ class LinkManager:
 
     def absolute_url(self, rel_href):
         route_i = rel_href.find("//")
+        print("REL: " + rel_href)
+        print("HTML: " + self.html_url)
         if route_i > -1:
             # assume before '//' is route (not real directory) & remove:
             rel_href = rel_href[route_i+2:]
+        redundant_flags = []
+        # redundant_flags = ["download", "download/"]
+        slash2 = rel_href.find("/")
+        if slash2 > -1:
+            start = 0
+            if slash2 == 0:
+                start += 1
+                slash2 = rel_href.find("/", start)
+                if slash2 == 1:
+                    start += 1
+                    slash2 = rel_href.find("/", start)
+            if slash2 > -1:
+                first_word = rel_href[start:slash2]
+                # print("FIRST_WORD: " + first_word)
+                redundant_flags.append(first_word)
+                redundant_flags.append(first_word + "/")
+
+        # if first word of subdir is in root dir, assume redundant:
+        for flag in redundant_flags:
+            route_i = rel_href.find(flag)
+            if route_i > -1:
+                if self.html_url[-len(flag):] == flag:
+                    # assume is route (not real directory) & remove:
+                    rel_href = rel_href[route_i+len(flag):]
+                    print("NEW_REL: " + rel_href)
         if (self.html_url[-1] == "/") and (rel_href[0] == "/"):
-            rel_href = rel_href[1:]
+            start = 1
+            if rel_href[1] == "/":
+                start = 2
+            rel_href = rel_href[start:]
         return self.html_url + rel_href
 
 

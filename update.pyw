@@ -389,7 +389,7 @@ def refresh():
     p_urls = []
     a_urls = []
     urls = mgr.get_urls(verbose=False,
-                        must_contain="download//blender-")
+                        must_contain="/blender-")
     print("Of the total " + str(len(urls)) + " blender download url(s)")
     count = 0
     v_msg = ""
