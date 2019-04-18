@@ -49,7 +49,7 @@ version_e = None
 refresh_btn = None
 pbar = None
 del_arc_var = tk.IntVar()
-mgr = bw.LinkManager()
+mgr = bw.LinkManager()  # contains mgr.profile_path
 d_buttons = []
 msg_labels = []
 bin_names = ["blender", "blender.exe"]
@@ -93,7 +93,7 @@ def make_shortcut(meta, program_name):
     version = meta.get('version')
     sc_src_name = program_name
     if version is not None:
-        sc_name += " " + version
+        sc_name += " " + version + " Nightly"
     sc_label_s = sc_name[0].upper() + sc_name[1:]
     if sc_ext != "desktop":
         # filename is visible if not "desktop" format, so capitalize
@@ -138,6 +138,16 @@ def make_shortcut(meta, program_name):
             os.chmod(sc_path, 0o755)  # leading 0o denotes octal
         except:
             print("WARNING: could not mark icon as executable")
+        PREFIX = os.path.join(mgr.profile_path, ".local")
+        SHARE = os.path.join(PREFIX, "share")
+        applications_path = os.path.join(SHARE, "applications")
+        if not os.path.isdir(applications_path):
+            os.makedirs(applications_path)
+        standard_icon_path = os.path.join(
+            applications_path,
+            "org.blender.blender-nightly.desktop"
+        )
+        shutil.copyfile(sc_path, standard_icon_path)
     elif sc_ext == "bat":
         outs = open(sc_path, 'w')
         outs.write('"' + bin_path + '"' + "\n")
