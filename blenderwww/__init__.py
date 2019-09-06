@@ -118,8 +118,8 @@ class DownloadPageParser(HTMLParser):
             self.release_arch = "x86_64"  # always x86_64
         elif self.os_name == "windows":
             # parent css class of section (above ul): "platform-win"
-            self.platform_flag = "win64"
-            self.release_arch = "win64"
+            self.platform_flag = "windows64"
+            self.release_arch = "windows64"
             # self.release_arch = "win32"
         elif self.os_name == "linux":
             # parent css class of section (above ul): "platform-linux"
