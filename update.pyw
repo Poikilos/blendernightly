@@ -8,6 +8,8 @@ import threading
 import zipfile
 import sys
 import traceback
+import tempfile
+import subprocess
 
 min_indent = "  "
 
@@ -50,7 +52,7 @@ refresh_btn = None
 pbar = None
 del_arc_var = tk.IntVar()
 mgr = bw.LinkManager()  # contains mgr.profile_path
-d_buttons = []
+dl_buttons = []
 msg_labels = []
 bin_names = ["blender", "blender.exe"]
 
@@ -78,17 +80,23 @@ def d_done(evt):
     pbar['value'] = 0
     master.update()
 
-def make_shortcut(meta, program_name):
+def make_shortcut(meta, program_name, uninstall=False):
+
     ret = True
     desktop_path = mgr.get_desktop_path()
     sc_ext = mgr.get_shortcut_ext()
     bin_path = meta.get('installed_bin')
-    if bin_path is None:
-        msg = "installed_bin is missing from meta."
-        push_label("Cannot create shortcut since")
-        push_label(msg)
-        print(msg)
-        return False
+    action = "create"
+    if uninstall:
+        action = "uninstall"
+    if not uninstall:
+        if bin_path is None:
+            msg = "installed_bin is missing from meta."
+            push_label("{} shortcut failed since".format(action))
+            push_label(msg)
+            print(msg)
+            return False
+    print("* {} shortcut...".format(action))
     sc_name = program_name
     version = meta.get('version')
     sc_src_name = program_name
@@ -102,84 +110,173 @@ def make_shortcut(meta, program_name):
         sc_name += "." + sc_ext
         sc_src_name += "." + sc_ext
     else:
-        print("WARNING: Shortcut extension is unknown for your platform.")
+        print("WARNING: The shortcut extension is unknown for your"
+              " platform.")
     sc_path = os.path.join(desktop_path, sc_name)
 
     user_downloads_path = mgr.get_downloads_path()
     bn_path = os.path.join(user_downloads_path, "blendernightly")
     # archives_path = os.path.join(bn_path, "archives")
     # if not os.path.isdir(archives_path):
-        # print("  creating: " + archives_path)
+        # print("  {}: ".format(action) + archives_path)
         # os.makedirs(archives_path)
     versions_path = os.path.join(bn_path, "versions")
 
     installed_path = os.path.join(versions_path, meta['id'])
+    print("* id: {}".format(meta['id']))
     if sc_ext == "desktop":
-        sc_src_path = os.path.join(installed_path, sc_src_name)
-        if not os.path.isfile(sc_src_path):
-            msg = sc_src_name + " is missing"
-            push_label("Cannot create shortcut since")
-            push_label(msg)
-            print(msg)
-            return False
-        with open(sc_path, 'w') as outs:
-            with open(sc_src_path, "r") as ins:
-                for line_orig in ins:
-                    line = line_orig.rstrip()
-                    exec_flag = "Exec="
-                    name_flag = "Name="
-                    if line[:len(exec_flag)] == exec_flag:
-                        outs.write(exec_flag + bin_path + "\n")
-                    elif line[:len(name_flag)] == name_flag:
-                        outs.write(name_flag + sc_label_s + "\n")
-                    else:
-                        outs.write(line + "\n")
-        try:
-            os.chmod(sc_path, 0o755)  # leading 0o denotes octal
-        except:
-            print("WARNING: could not mark icon as executable")
+        if not uninstall:
+            print("* writing shortcut...")
+            sc_src_path = os.path.join(installed_path, sc_src_name)
+            if not os.path.isfile(sc_src_path):
+                msg = sc_src_name + " is missing"
+                push_label("ERROR: {} shortcut failed since"
+                           "".format(action))
+                push_label(msg)
+                print(msg)
+                return False
+            with open(sc_path, 'w') as outs:
+                with open(sc_src_path, "r") as ins:
+                    for line_orig in ins:
+                        line = line_orig.rstrip()
+                        exec_flag = "Exec="
+                        name_flag = "Name="
+                        if line[:len(exec_flag)] == exec_flag:
+                            print("  - {}{}".format(exec_flag,
+                                                     bin_path))
+                            outs.write(exec_flag + bin_path + "\n")
+                        elif line[:len(name_flag)] == name_flag:
+                            print("  - {}{}".format(name_flag,
+                                                    sc_label_s))
+                            outs.write(name_flag + sc_label_s + "\n")
+                        else:
+                            outs.write(line + "\n")
+            try:
+                # Keep the desktop shortcut and mark it executable.
+                os.chmod(sc_path, 0o755)
+                # ^ leading 0o denotes octal
+            except:
+                print("WARNING: could not mark icon as executable")
+        else:
+            pass
+            # print("* {} is skipping shortcut writing".format(action))
+
         PREFIX = os.path.join(mgr.profile_path, ".local")
         SHARE = os.path.join(PREFIX, "share")
         applications_path = os.path.join(SHARE, "applications")
-        if not os.path.isdir(applications_path):
-            os.makedirs(applications_path)
+        if not uninstall:
+            if not os.path.isdir(applications_path):
+                os.makedirs(applications_path)
+        standard_icon_name = "org.blender.blender-nightly.desktop"
         standard_icon_path = os.path.join(
             applications_path,
-            "org.blender.blender-nightly.desktop"
+            standard_icon_name
         )
-        shutil.copyfile(sc_path, standard_icon_path)
+        if not uninstall:
+            tmp_sc_dir_path = tempfile.mkdtemp()
+            tmp_sc_path = os.path.join(tmp_sc_dir_path,
+                                       standard_icon_name)
+            shutil.copy(sc_path, tmp_sc_path)
+            # ^ XDG requires this naming.
+        # "--novendor" can force it, but still not if there are spaces.
+        desktop_installer = "xdg-desktop-menu"
+        if not uninstall:
+            sc_cmd_parts = [desktop_installer, "install", tmp_sc_path]
+            install_proc = subprocess.run(sc_cmd_parts)
+            inst_msg = "OK"
+            os.remove(tmp_sc_path)
+            if install_proc.returncode != 0:
+                inst_msg = "FAILED"
+                print("* {}...{}".format(" ".join(sc_cmd_parts),
+                                            inst_msg))
+                print("  - attempting to copy to {} manually..."
+                      "".format(standard_icon_path))
+                shutil.copyfile(sc_path, standard_icon_path)
+            else:
+                print("* {}...{}".format(" ".join(sc_cmd_parts),
+                                         inst_msg))
+        else:
+            if os.path.isfile(sc_path):
+                print("* removing {}...".format(sc_path))
+                os.remove(sc_path)
+            if os.path.isfile(standard_icon_path):
+                print("* removing {}...".format(standard_icon_path))
+                os.remove(standard_icon_path)
     elif sc_ext == "bat":
-        outs = open(sc_path, 'w')
-        outs.write('"' + bin_path + '"' + "\n")
-        outs.close()
+        if not uninstall:
+            outs = open(sc_path, 'w')
+            outs.write('"' + bin_path + '"' + "\n")
+            outs.close()
+        else:
+            if os.path.isfile(sc_path):
+                print("* removing {}...".format(sc_path))
+                os.remove(sc_path)
     elif sc_ext == "command":
-        outs = open(sc_path, 'w')
-        outs.write('"' + bin_path + '"' + "\n")
-        outs.close()
+        if not uninstall:
+            outs = open(sc_path, 'w')
+            outs.write('"' + bin_path + '"' + "\n")
+            outs.close()
+        else:
+            if os.path.isfile(sc_path):
+                print("* removing {}...".format(sc_path))
+                os.remove(sc_path)
     else:
         msg = "unknown shortcut format " + sc_ext
-        push_label("Cannot create shortcut since")
+        push_label("{} shortcut failed since".format(action))
         push_label(msg)
         print(msg)
     return ret
 
 
+def uninstall_click(meta):
+    print("* uninstalling {}".format(meta))
+    # make_shortcut(meta, "blender", uninstall=True)
+    d_click(meta, uninstall=True)
 
-def d_click(meta):
+
+def remove_ar_click(meta):
+    print("* uninstalling {}".format(meta))
+    # make_shortcut(meta, "blender", uninstall=True)
+    d_click(meta, uninstall=False, remove_download=True)
+
+
+def d_click(meta, uninstall=False, remove_download=False):
     global shown_progress
     global pbar
-    for btn in d_buttons:
+    update_past_verb = "Updated"
+    update_present_verb = "Updating"
+    action_present_verb = "Installing"
+    action = "install"
+    enable_install = True
+    if uninstall:
+        enable_install = False
+        update_past_verb = "Removed"
+        update_present_verb = "Removing"
+        action_present_verb = "Uninstalling"
+        action = "uninstall"
+    if remove_download:
+        enable_install = False
+    for btn in dl_buttons:
         btn.config(state=tk.DISABLED)
     refresh_btn.config(state=tk.DISABLED)
     btn = meta.get('button')
-    if btn is not None:
-        btn.pack_forget()
+    uninstall_btn = meta.get("uninstall_button")
+    if not uninstall:
+        if btn is not None:
+            btn.pack_forget()
+    else:
+        if remove_download:
+            if btn is not None:
+                btn.pack_forget()
+        if uninstall_btn is not None:
+            uninstall_btn.pack_forget()
+
     master.update()
     shown_progress = 0
     print("")
     for label in msg_labels:
         label.pack_forget()
-    print("Installing:")
+    print(action_present_verb + ":")
     print("  version: " + meta['version'])
     print("  commit: " + meta['commit'])
     pbar['maximum'] = 200*1024*1024  # TODO: get actual MB count
@@ -188,9 +285,13 @@ def d_click(meta):
     abs_url = None
     if url is not None:
         abs_url = mgr.absolute_url(url)
-    dest_id = mgr.parser.id_from_name(meta['filename'], remove_ext=True)
+
+    dest_id = meta.get('id')
+    if dest_id is None:
+        dest_id = mgr.parser.id_from_name(meta['filename'],
+                                          remove_ext=True)
     # print("new_filename: " + mgr.parser.id_from_url(url))
-    dl_name = meta['filename']  # bw.name_from_url(url)
+    dl_name = meta.get('filename')  # bw.name_from_url(url)
     user_downloads_path = mgr.get_downloads_path()
     bn_path = os.path.join(user_downloads_path, "blendernightly")
     archives_path = os.path.join(bn_path, "archives")
@@ -199,117 +300,149 @@ def d_click(meta):
         os.makedirs(archives_path)
     versions_path = os.path.join(bn_path, "versions")
     installed_path = os.path.join(versions_path, dest_id)
-    print("  install: " + installed_path)  # /2.??-<commit>
-    archive_path = os.path.join(archives_path, dl_name)
-    for flag_name in bin_names:
-        flag_path = os.path.join(installed_path, flag_name)
-        if os.path.isfile(flag_path):
-            msg = "Already installed " + meta['id'] + "."
-            print("  already_installed: true")
-            count_label.config(text=msg)
-            for btn in d_buttons:
-                btn.config(state=tk.NORMAL)
-            refresh_btn.config(state=tk.NORMAL)
-            master.update()
-            return
-    if not os.path.isfile(archive_path):
-        # abs_url should never be None if file already exists
-        print("  downloading: " + abs_url)
-        mgr.download(archive_path, abs_url, cb_progress=d_progress,
-                     cb_done=d_done)
-    else:
-        print("  already_downloaded: " + archive_path)
+    print("  {}: {}".format(action, installed_path))  # /2.??-<commit>
+    archive_path = None
+    if dl_name is not None:
+        archive_path = os.path.join(archives_path, dl_name)
+    if enable_install:
+        for flag_name in bin_names:
+            flag_path = os.path.join(installed_path, flag_name)
+            if os.path.isfile(flag_path):
+                msg = "Already installed " + meta['id'] + "."
+                print("  already_installed: true")
+                count_label.config(text=msg)
+                for btn in dl_buttons:
+                    btn.config(state=tk.NORMAL)
+                refresh_btn.config(state=tk.NORMAL)
+                master.update()
+                return
+
+        if not os.path.isfile(archive_path):
+            # abs_url should never be None if file already exists
+            print("  - downloading: " + abs_url)
+            mgr.download(archive_path, abs_url, cb_progress=d_progress,
+                         cb_done=d_done)
     tar = None
-    ext = bw.get_ext(archive_path)
-    # if archive_path.lower()[-8:] == ".tar.bz2":
+    ext = None
     fmt = None
     fmt_bad = False
-    if ext.lower() == "bz2":
-        fmt = "r:bz2"
-    elif ext.lower() == "gz":
-        fmt = "r:gz"
-    elif ext.lower() == "xz":
-        fmt = "r:xz"
-    elif ext.lower() == "zip":
-        fmt = "zip"
-    else:
-        msg = ("ERROR: unknown file format for '" +
-               archive_path + "'")
-        push_label("unknown format " + ext)
-        print(msg)
-    if fmt is not None:
-        try:
-            if fmt != "zip":
-                tar = tarfile.open(archive_path, fmt)
-            else:
-                tar = zipfile.ZipFile(archive_path)
-        except:
-            fmt_bad = True
-            msg = "ERROR: archive not " + fmt
-            push_label(msg)
+    if archive_path is not None:
+        ext = bw.get_ext(archive_path)
+        # if archive_path.lower()[-8:] == ".tar.bz2":
+        if ext.lower() == "bz2":
+            fmt = "r:bz2"
+        elif ext.lower() == "gz":
+            fmt = "r:gz"
+        elif ext.lower() == "xz":
+            fmt = "r:xz"
+        elif ext.lower() == "zip":
+            fmt = "zip"
+        else:
+            msg = ("ERROR: unknown file format for '" +
+                   archive_path + "'")
+            push_label("unknown format " + ext)
             print(msg)
+    if enable_install:
+        if fmt is not None:
+            try:
+                if fmt != "zip":
+                    tar = tarfile.open(archive_path, fmt)
+                else:
+                    tar = zipfile.ZipFile(archive_path)
+            except:
+                fmt_bad = True
+                msg = "ERROR: archive not " + fmt
+                push_label(msg)
+                print(msg)
     if fmt_bad:
         os.remove(archive_path)
-        msg = "  Deleting downloaded '" + archive_path + "'..."
+        msg = "  - deleting downloaded '" + archive_path + "'..."
         print(msg)
         push_label("Deleted bad download.")
         push_label("Download again.")
+    if remove_download:
+        msg = "  - deleting downloaded '" + archive_path + "'..."
+        print(msg)
+        os.remove(archive_path)
+    else:
+        if archive_path is not None:
+            msg = "  - leaving downloaded '" + archive_path + "'..."
+            print(msg)
+
     if tar is None:
-        for btn in d_buttons:
-            btn.config(state=tk.NORMAL)
-        refresh_btn.config(state=tk.NORMAL)
-        return
+        if enable_install:
+            for btn in dl_buttons:
+                btn.config(state=tk.NORMAL)
+            refresh_btn.config(state=tk.NORMAL)
+            return
     else:
         print("  fmt: " + fmt)
     tmp_path = os.path.join(bn_path, "tmp")
-    if not os.path.isdir(tmp_path):
-        os.makedirs(tmp_path)
+    if enable_install:
+        if not os.path.isdir(tmp_path):
+            print("* created {}".format(tmp_path))
+            os.makedirs(tmp_path)
+    else:
+        print("* tmp_path: {}".format(tmp_path))
     # for i in tar:
         # tar.extractfile(i)
     ok = False
     try:
-        msg = "extracting..."
-        count_label.config(text=msg)
-        master.update()
-        # push_label(msg)
-        print(msg)
-        tar.extractall(tmp_path)
+        # if uninstall:
+        #     msg = "examining archive..."
+        if enable_install:
+            msg = "extracting..."
+            count_label.config(text=msg)
+            master.update()
+            # push_label(msg)
+            print(msg)
+            tar.extractall(tmp_path)
         ok = True
     except EOFError:
         msg = "ERROR: archive incomplete"
         push_label(msg)
         print(msg)
+    finally:
+        if tar is not None:
+            tar.close()
+            tar = None
+    ext_path = tmp_path  # changes to sub if archive has only 1 dir
+    if enable_install:
+        msg = "checking tmp..."
+        count_label.config(text=msg)
+        master.update()
+        # push_label(msg)
+        print(msg)
+        subdirs = bw.get_subdir_names(tmp_path)
 
-    msg = "checking tmp..."
-    count_label.config(text=msg)
-    master.update()
-    # push_label(msg)
-    print(msg)
-    subdirs = bw.get_subdir_names(tmp_path)
-    ext_path = tmp_path
-    if len(subdirs) == 1:
-        ext_path = os.path.join(tmp_path, subdirs[0])
-        print("  Detected tar-like (single-folder) archive, used '" +
-              ext_path + "' as program root")
-    elif len(subdirs) == 0:
-        print("  Detected no extracted subdirectories...")
-        files = bw.get_file_names(tmp_path)
-        if len(files) == 0:
-            print("    and found no files either, so failed.")
-            ok = False
+        if len(subdirs) == 1:
+            ext_path = os.path.join(tmp_path, subdirs[0])
+            print("  Detected tar-like (single-folder) archive, used '" +
+                  ext_path + "' as program root")
+        elif len(subdirs) == 0:
+            print("  Detected no extracted subdirectories...")
+            files = bw.get_file_names(tmp_path)
+            if len(files) == 0:
+                print("    and found no files either, so failed.")
+                ok = False
+            else:
+                print("    but found files, so using '" + ext_path +
+                      "' as program root")
         else:
-            print("    but found files, so using '" + ext_path +
-                  "' as program root")
-    else:
-        print("  Detected windows-like (multi-folder) archive, used '" +
-              ext_path + "' as program root")
-    tar.close()
+            print("  Detected windows-like (multi-folder) archive, used '" +
+                  ext_path + "' as program root")
+        if tar is not None:
+            tar.close()
+            tar = None
 
-    msg = "moving from tmp..."
-    count_label.config(text=msg)
-    master.update()
-    # push_label(msg)
-    print(msg)
+    if enable_install:
+        msg = "moving from tmp..."
+        # if uninstall:
+        #     msg = "examining extracted tmp..."
+        count_label.config(text=msg)
+        master.update()
+        # push_label(msg)
+        print(msg)
 
     remove_tmp = False
     if not ok:
@@ -321,33 +454,59 @@ def d_click(meta):
             meta['id'],
             bin_names
         )
-        if make_shortcut(meta, "blender"):
-            msg = "Updated Desktop icon."
-        else:
-            msg = "Update desktop icon failed."
-        count_label.config(text=msg)
-        master.update()
-        remove_tmp = True
+        if enable_install:
+            if make_shortcut(meta, "blender", uninstall=uninstall):
+                msg = ("  - {} the old desktop shortcut"
+                       "".format(update_past_verb))
+            else:
+                msg = ("  - {} the old desktop shortcut failed."
+                       "".format(update_present_verb))
+            count_label.config(text=msg)
+            master.update()
+            remove_tmp = True
     if remove_tmp:
-        print("  Deleting temporary '" + tmp_path + "'...")
-        shutil.rmtree(tmp_path)
+        if os.path.isdir(tmp_path):
+            print("  - deleting temporary '" + tmp_path + "'...")
+            shutil.rmtree(tmp_path)
     if ok:
         try:
-            shutil.move(ext_path, installed_path)
-            count_label.config(text="Finished installing.")
-            print("* finished installing")
+            if enable_install:
+                print("  - moving {} to {}".format(ext_path,
+                                                   installed_path))
+                shutil.move(ext_path, installed_path)
+            else:
+                if os.path.isdir(ext_path):
+                    print("* WARNING: removing {}".format(ext_path))
+                    shutil.rmtree(ext_path)
+                if os.path.isdir(installed_path):
+                    print("* uninstalling {}".format(ext_path))
+                    shutil.rmtree(installed_path)
+            count_label.config(text=action+" is complete.")
+            print("* {} is complete".format(action))
+            if enable_install:
+                if btn is not None:
+                    btn.pack_forget()
+            else:
+                if uninstall_btn is not None:
+                    uninstall_btn.pack_forget()
+
             master.update()
             meta['installed_bin'] = bw.get_installed_bin(
                 versions_path,
                 meta['id'],
                 bin_names
             )
-            if make_shortcut(meta, "blender"):
-                msg = "Updated Desktop icon."
-            else:
-                msg = "Update desktop icon failed."
+            if enable_install:
+                if make_shortcut(meta, "blender", uninstall=uninstall):
+                    msg = ("{} the desktop shortcut"
+                           "".format(update_past_verb))
+                else:
+                    msg = ("{} the desktop shortcut failed."
+                           "".format(update_present_verb))
         except:
-            msg = "Could not finish moving"
+            msg = action + " could not finish moving"
+            if uninstall:
+                msg = action + " could not finish deleting"
             push_label(msg)
             count_label.config(text="Installation failed.")
             master.update()
@@ -357,13 +516,14 @@ def d_click(meta):
             print("  to '" + installed_path + "'")
             view_traceback()
     else:
-        msg = "  Deleting downloaded '" + archive_path + "'..."
-        print(msg)
-        push_label("Deleted bad download.")
-        push_label("Download again.")
-        os.remove(archive_path)
+        if archive_path is not None:
+            msg = "  Deleting downloaded '" + archive_path + "'..."
+            print(msg)
+            push_label("Deleted bad download.")
+            push_label("Download again.")
+            os.remove(archive_path)
 
-    for btn in d_buttons:
+    for btn in dl_buttons:
         btn.config(state=tk.NORMAL)
     refresh_btn.config(state=tk.NORMAL)
     master.update()
@@ -378,12 +538,12 @@ def refresh():
     global version_e
     global pflag_e
     global arch_e
-    global d_buttons
+    global dl_buttons
     for label in msg_labels:
         label.pack_forget()
-    for btn in d_buttons:
+    for btn in dl_buttons:
         btn.pack_forget()
-    d_buttons = []
+    dl_buttons = []
     count_label.config(text="scraping Downloads page...")
     master.update()
     only_v = version_e.get().strip()
@@ -465,13 +625,16 @@ def refresh():
     # get already-downloaded versions and see if they are installed
     # (in case certain downloaded builds are no longer available)
     dl_metas = []
+    inst_metas = []
     dl_but_not_inst_count = 0
     print("  existing_downloads: ")  # /2.??-<commit>
+    added_ids = []
     for dl_name in bw.get_file_names(archives_path):
         archive_path = os.path.join(archives_path, dl_name)
+        dest_id = mgr.parser.id_from_url(dl_name, remove_ext=True)
         meta = {}
         dl_metas.append(meta)
-        dest_id = mgr.parser.id_from_url(dl_name, remove_ext=True)
+        added_ids.append(dest_id)
         installed_path = os.path.join(versions_path, dest_id)
         meta['downloaded'] = True
         # meta['url'] = None
@@ -479,13 +642,38 @@ def refresh():
         meta['id'] = dest_id
         meta['version'] = mgr.parser.blender_tag_from_url(dl_name)
         meta['commit'] = mgr.parser.blender_commit_from_url(dl_name)
-        print("  - '" + installed_path + "'")
+        print("  - (archive) '" + installed_path + "'")
         bin_path = bw.get_installed_bin(versions_path, meta['id'],
                                         bin_names)
         if bin_path is not None:
             meta['installed_bin'] = bin_path
         else:
             dl_but_not_inst_count += 1
+
+    for installed_name in bw.get_subdir_names(versions_path):
+        installed_path = os.path.join(versions_path, installed_name)
+        dest_id = installed_name
+        if dest_id in added_ids:
+            continue
+        meta = {}
+        inst_metas.append(meta)
+        # ^ formerly mgr.parser.id_from_name(installed_name)
+        meta['downloaded'] = True
+        meta['install_path'] = installed_path
+        meta['id'] = dest_id
+        name_parts = dest_id.split("-")
+        meta['version'] = name_parts[0]
+        meta['installed'] = True
+        if len(name_parts) > 1:
+            meta['commit'] = name_parts[1]
+        else:
+            print("INFO: There is no commit hash in the directory name"
+                  " \"{}\"".format(dest_id))
+        print("  - (installed) '" + installed_path + "'")
+        bin_path = bw.get_installed_bin(versions_path, meta['id'],
+                                        bin_names)
+        if bin_path is not None:
+            meta['installed_bin'] = bin_path
 
     status_s = v_msg + "count: " + str(len(a_urls))
     count_label.config(text=status_s)
@@ -494,7 +682,7 @@ def refresh():
 
     row = 1
     url_installed_count = 0
-    for meta in metas:
+    for meta in metas + inst_metas:
         # see https://stackoverflow.com/questions/17677649/\
         # tkinter-assign-button-command-in-loop-with-lambda
         user_button = tk.Button(
@@ -502,21 +690,41 @@ def refresh():
             text = "Install " + meta['id'],
             command=lambda meta=meta: d_click(meta)
         )
+
         meta['button'] = user_button
-        d_buttons.append(user_button)
-        user_button.pack()  # grid(row = row, column = 0)
+
+        uninstall_caption = "Uninstall"
+        if meta.get('installed') is True:
+            uninstall_caption = "Remove old"
+        else:
+            dl_buttons.append(user_button)
+            user_button.pack()  # grid(row = row, column = 0)
+        uninstall_button = tk.Button(
+            master,
+            text = uninstall_caption + " " + meta['id'],
+            command=lambda meta=meta: uninstall_click(meta)
+        )
+        meta['uninstall_button'] = uninstall_button
         bin_path = bw.get_installed_bin(versions_path, meta['id'],
                                         bin_names)
         if bin_path is not None:
             meta['installed_bin'] = bin_path
             user_button.config(state=tk.DISABLED)
+            if os.path.isfile(bin_path):
+                dl_buttons.append(uninstall_button)
+                uninstall_button.pack()  # grid(row = row, column = 0)
+            # else:
+            #     uninstall_button.config(state=tk.DISABLED)
             url_installed_count += 1
+        else:
+            print("The bin path is unknown for {}".format(meta))
         row += 1
     if url_installed_count > 0:
         push_label("(already installed " + str(url_installed_count) +
                    " above)")
     else:
-        print("no available downloads are installed yet.")
+        print("no available downloads are installed into {} yet."
+              "".format(versions_path))
     if dl_but_not_inst_count > 0:
         push_label("Downloaded but not installed (" +
                    str(dl_but_not_inst_count) + "):")
@@ -534,8 +742,23 @@ def refresh():
                 command=lambda meta=meta: d_click(meta)
             )
             meta['button'] = user_button
-            d_buttons.append(user_button)
+            dl_buttons.append(user_button)
             user_button.pack()  # grid(row = row, column = 0)
+
+            if meta['id'] in ( meta['id'] for meta in metas ):
+                # already is a button
+                continue
+            # print("  # not installed: " + meta['filename'])
+            remove_button = tk.Button(
+                master,
+                text = "Delete " + meta['id'],
+                command=lambda meta=meta: remove_ar_click(meta)
+            )
+            meta['button'] = remove_button
+            dl_buttons.append(remove_button)
+            remove_button.pack()  # grid(row = row, column = 0)
+
+
             row += 1
         # else:
             # print("  # installed: " + meta['filename'])
@@ -546,15 +769,15 @@ def refresh():
     refresh_btn.config(state=tk.NORMAL)
     expand = 0
     old_bottom = count_label.winfo_y() + count_label.winfo_height()
-    # if len(d_buttons) > 2:
+    # if len(dl_buttons) > 2:
     master.update()
     # use max heights to resize window,
     # since widget height is 0 if crushed by window:
     btn_h_max = refresh_btn.winfo_height()
     label_h_max = count_label.winfo_height()
-    for i in range(0, len(d_buttons)):
-        if d_buttons[i].winfo_height() > btn_h_max:
-            btn_h_max = d_buttons[i].winfo_height()
+    for i in range(0, len(dl_buttons)):
+        if dl_buttons[i].winfo_height() > btn_h_max:
+            btn_h_max = dl_buttons[i].winfo_height()
         expand += btn_h_max
     for i in range(0, len(msg_labels)):
         if msg_labels[i].winfo_height() > label_h_max:
@@ -563,7 +786,7 @@ def refresh():
     if expand > 0:
         print("expand: " + str(expand))
         # master.config(height=master.winfo_width()+expand)
-        root.geometry('300x' + str(old_bottom+expand))
+        root.geometry('400x' + str(old_bottom+expand))
 
 thread1 = None
 def start_refresh():

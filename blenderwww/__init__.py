@@ -100,7 +100,14 @@ class DownloadPageParser(HTMLParser):
         self.meta = meta
         self.tag = None
         self.tag_stack = []
-        self.extensions = [".zip", ".dmg", ".tar.gz", ".tar.bz2"]
+        self.archive_categories = {}  # based on install_any.py
+        self.archive_categories["tar"] = [".tar.bz2", ".tar.gz",
+                                          ".tar.xz"]
+        self.archive_categories["zip"] = [".zip"]
+        self.archive_categories["dmg"] = [".dmg"]
+        self.extensions = []
+        for category, endings in self.archive_categories.items():
+            self.extensions.extend(endings)
         self.closers = ["-glibc"]
         self.openers = ["blender-"]
         self.remove_this_dot_any = ["-10."]
