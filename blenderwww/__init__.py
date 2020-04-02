@@ -96,7 +96,7 @@ class DownloadPageParser(HTMLParser):
         self.urls = []
         self.verbose = False
         self.must_contain = None
-        self.release_version = "2.81"  # find href /download//blender-*
+        self.release_version = "2.83"  # find href /download//blender-*
         self.meta = meta
         self.tag = None
         self.tag_stack = []
@@ -108,14 +108,14 @@ class DownloadPageParser(HTMLParser):
         platform_system = platform.system()
         self.os_name = platform_system.lower()
         self.platform_flag = None
-        self.release_arch = "x86_64"
+        self.release_arch = "linux64"
         self.os_flags = {"Win64":"windows", "Win32":"windows",
                          "linux":"linux", "OSX":"macos"}
         if self.os_name == "darwin":
             self.os_name = "macos"  # change to Blender build naming
             # parent css class of section (above ul): "platform-macOS"
             self.platform_flag = "OSX"
-            self.release_arch = "x86_64"  # always x86_64
+            self.release_arch = "macOS"  # macOS, formerly x86_64
         elif self.os_name == "windows":
             # parent css class of section (above ul): "platform-win"
             self.platform_flag = "windows64"
@@ -124,7 +124,7 @@ class DownloadPageParser(HTMLParser):
         elif self.os_name == "linux":
             # parent css class of section (above ul): "platform-linux"
             self.platform_flag = "linux"
-            self.release_arch = "x86_64"
+            self.release_arch = "linux64"  # formerly x86_64
             # self.release_arch = "i686"
         else:
             print("WARNING: unknown system '" + platform_system + "'")

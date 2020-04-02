@@ -228,6 +228,8 @@ def d_click(meta):
         fmt = "r:bz2"
     elif ext.lower() == "gz":
         fmt = "r:gz"
+    elif ext.lower() == "xz":
+        fmt = "r:xz"
     elif ext.lower() == "zip":
         fmt = "zip"
     else:
@@ -333,6 +335,7 @@ def d_click(meta):
         try:
             shutil.move(ext_path, installed_path)
             count_label.config(text="Finished installing.")
+            print("* finished installing")
             master.update()
             meta['installed_bin'] = bw.get_installed_bin(
                 versions_path,
