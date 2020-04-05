@@ -125,8 +125,26 @@ def make_shortcut(meta, program_name, uninstall=False):
     installed_path = os.path.join(versions_path, meta['id'])
     print("* id: {}".format(meta['id']))
     if sc_ext == "desktop":
+        PREFIX = os.path.join(mgr.profile_path, ".local")
+        BIN = os.path.join(PREFIX, "bin")
+        sh_path = os.path.join(BIN, "blendernightly-logged.sh")
+        logexec = bin_path
+        CACHES = os.path.join(mgr.profile_path, ".cache")
+        CACHE = os.path.join(CACHES, "blender-nightly")
+        if not os.path.isdir(CACHE):
+            os.makedirs(CACHE)
+        if bin_path is not None:
+            logexec += ' > ' + CACHE + '/blender-`date "+%Y-%m-%d"`-error.log 2>&1'
         if not uninstall:
-            print("* writing shortcut...")
+            with open(sh_path, 'w') as outs:
+                outs.write("#!/bin/sh" + "\n")
+                outs.write(logexec + "\n")
+            os.chmod(sh_path, 0o755)
+            print("* wrote {}".format(sh_path))
+            if os.path.isfile(sc_path):
+                print("* removing {}".format(sc_path))
+                os.remove(sc_path)
+            print("* writing {}...".format(sc_path))
             sc_src_path = os.path.join(installed_path, sc_src_name)
             if not os.path.isfile(sc_src_path):
                 msg = sc_src_name + " is missing"
@@ -142,13 +160,13 @@ def make_shortcut(meta, program_name, uninstall=False):
                         exec_flag = "Exec="
                         name_flag = "Name="
                         if line[:len(exec_flag)] == exec_flag:
-                            print("  - {}{}".format(exec_flag,
-                                                     bin_path))
-                            outs.write(exec_flag + bin_path + "\n")
+                            exec_line = exec_flag + sh_path
+                            print("  - {}".format(exec_line))
+                            outs.write(exec_line + "\n")
                         elif line[:len(name_flag)] == name_flag:
-                            print("  - {}{}".format(name_flag,
-                                                    sc_label_s))
-                            outs.write(name_flag + sc_label_s + "\n")
+                            name_line = name_flag + sc_label_s
+                            print("  - {}".format(name_line))
+                            outs.write(name_line + "\n")
                         else:
                             outs.write(line + "\n")
             try:
@@ -177,10 +195,17 @@ def make_shortcut(meta, program_name, uninstall=False):
             tmp_sc_path = os.path.join(tmp_sc_dir_path,
                                        standard_icon_name)
             shutil.copy(sc_path, tmp_sc_path)
+            print("* using {} for {}".format(sc_path, tmp_sc_path))
             # ^ XDG requires this naming.
         # "--novendor" can force it, but still not if there are spaces.
         desktop_installer = "xdg-desktop-menu"
         if not uninstall:
+            if os.path.isfile(standard_icon_path):
+                print("* removing {}...".format(standard_icon_path))
+                os.remove(sc_path)
+            # else:
+            #     print("* there's no {}...".format(standard_icon_path))
+
             sc_cmd_parts = [desktop_installer, "install", tmp_sc_path]
             install_proc = subprocess.run(sc_cmd_parts)
             inst_msg = "OK"
@@ -188,7 +213,7 @@ def make_shortcut(meta, program_name, uninstall=False):
             if install_proc.returncode != 0:
                 inst_msg = "FAILED"
                 print("* {}...{}".format(" ".join(sc_cmd_parts),
-                                            inst_msg))
+                                         inst_msg))
                 print("  - attempting to copy to {} manually..."
                       "".format(standard_icon_path))
                 shutil.copyfile(sc_path, standard_icon_path)
@@ -199,9 +224,13 @@ def make_shortcut(meta, program_name, uninstall=False):
             if os.path.isfile(sc_path):
                 print("* removing {}...".format(sc_path))
                 os.remove(sc_path)
+            else:
+                print("* there is no {}...".format(sc_path))
             if os.path.isfile(standard_icon_path):
                 print("* removing {}...".format(standard_icon_path))
                 os.remove(standard_icon_path)
+            else:
+                print("* there is no {}...".format(standard_icon_path))
     elif sc_ext == "bat":
         if not uninstall:
             outs = open(sc_path, 'w')
@@ -417,8 +446,8 @@ def d_click(meta, uninstall=False, remove_download=False):
 
         if len(subdirs) == 1:
             ext_path = os.path.join(tmp_path, subdirs[0])
-            print("  Detected tar-like (single-folder) archive, used '" +
-                  ext_path + "' as program root")
+            print("  Detected tar-like (single-folder) archive using '"
+                  + ext_path + "' as program root")
         elif len(subdirs) == 0:
             print("  Detected no extracted subdirectories...")
             files = bw.get_file_names(tmp_path)
@@ -464,6 +493,8 @@ def d_click(meta, uninstall=False, remove_download=False):
             count_label.config(text=msg)
             master.update()
             remove_tmp = True
+        else:
+            make_shortcut(meta, "blender", uninstall=uninstall)
     if remove_tmp:
         if os.path.isdir(tmp_path):
             print("  - deleting temporary '" + tmp_path + "'...")
@@ -503,6 +534,8 @@ def d_click(meta, uninstall=False, remove_download=False):
                 else:
                     msg = ("{} the desktop shortcut failed."
                            "".format(update_present_verb))
+            else:
+                make_shortcut(meta, "blender", uninstall=uninstall)
         except:
             msg = action + " could not finish moving"
             if uninstall:
