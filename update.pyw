@@ -682,7 +682,9 @@ def refresh():
             meta['installed_bin'] = bin_path
         else:
             dl_but_not_inst_count += 1
-
+    if versions_path is None:
+        raise RuntimeError("versions_path is None.")
+   
     for installed_name in bw.get_subdir_names(versions_path):
         installed_path = os.path.join(versions_path, installed_name)
         dest_id = installed_name

@@ -18,7 +18,7 @@ import os
 
 
 def get_subdir_names(folder_path, hidden=False):
-    ret = None
+    ret = []
     if os.path.exists(folder_path):
         ret = []
         for sub_name in os.listdir(folder_path):
