@@ -97,22 +97,22 @@ def make_shortcut(meta, program_name, uninstall=False):
             print(msg)
             return False
     print("* {} shortcut...".format(action))
-    sc_name = program_name
+    desktop_sc_name = program_name
     version = meta.get('version')
     sc_src_name = program_name
     if version is not None:
-        sc_name += " " + version + " Nightly"
-    sc_label_s = sc_name[0].upper() + sc_name[1:]
+        desktop_sc_name += " " + version + " Nightly"
+    sc_label_s = desktop_sc_name[0].upper() + desktop_sc_name[1:]
     if sc_ext != "desktop":
         # filename is visible if not "desktop" format, so capitalize
-        sc_name = sc_label_s
+        desktop_sc_name = sc_label_s
     if len(sc_ext) > 0:
-        sc_name += "." + sc_ext
+        desktop_sc_name += "." + sc_ext
         sc_src_name += "." + sc_ext
     else:
         print("WARNING: The shortcut extension is unknown for your"
               " platform.")
-    sc_path = os.path.join(desktop_path, sc_name)
+    desktop_sc_path = os.path.join(desktop_path, desktop_sc_name)
 
     user_downloads_path = mgr.get_downloads_path()
     bn_path = os.path.join(user_downloads_path, "blendernightly")
@@ -141,10 +141,10 @@ def make_shortcut(meta, program_name, uninstall=False):
                 outs.write(logexec + "\n")
             os.chmod(sh_path, 0o755)
             print("* wrote {}".format(sh_path))
-            if os.path.isfile(sc_path):
-                print("* removing {}".format(sc_path))
-                os.remove(sc_path)
-            print("* writing {}...".format(sc_path))
+            if os.path.isfile(desktop_sc_path):
+                print("* removing {}".format(desktop_sc_path))
+                os.remove(desktop_sc_path)
+            print("* writing {}...".format(desktop_sc_path))
             sc_src_path = os.path.join(installed_path, sc_src_name)
             if not os.path.isfile(sc_src_path):
                 msg = sc_src_name + " is missing"
@@ -153,7 +153,7 @@ def make_shortcut(meta, program_name, uninstall=False):
                 push_label(msg)
                 print(msg)
                 return False
-            with open(sc_path, 'w') as outs:
+            with open(desktop_sc_path, 'w') as outs:
                 with open(sc_src_path, "r") as ins:
                     for line_orig in ins:
                         line = line_orig.rstrip()
@@ -171,7 +171,7 @@ def make_shortcut(meta, program_name, uninstall=False):
                             outs.write(line + "\n")
             try:
                 # Keep the desktop shortcut and mark it executable.
-                os.chmod(sc_path, 0o755)
+                os.chmod(desktop_sc_path, 0o755)
                 # ^ leading 0o denotes octal
             except:
                 print("WARNING: could not mark icon as executable")
@@ -185,27 +185,46 @@ def make_shortcut(meta, program_name, uninstall=False):
         if not uninstall:
             if not os.path.isdir(applications_path):
                 os.makedirs(applications_path)
-        standard_icon_name = "org.blender.blender-nightly.desktop"
-        standard_icon_path = os.path.join(
+        sc_name = "org.blender.blender-nightly.desktop"
+        sc_path = os.path.join(
             applications_path,
-            standard_icon_name
+            sc_name
         )
+        desktop_installer = "xdg-desktop-menu"
+        u_cmd_parts = [desktop_installer, "uninstall", sc_path]
         if not uninstall:
             tmp_sc_dir_path = tempfile.mkdtemp()
             tmp_sc_path = os.path.join(tmp_sc_dir_path,
-                                       standard_icon_name)
-            shutil.copy(sc_path, tmp_sc_path)
-            print("* using {} for {}".format(sc_path, tmp_sc_path))
+                                       sc_name)
+            shutil.copy(desktop_sc_path, tmp_sc_path)
+            print("* using {} for {}".format(desktop_sc_path, tmp_sc_path))
             # ^ XDG requires this naming.
         # "--novendor" can force it, but still not if there are spaces.
-        desktop_installer = "xdg-desktop-menu"
-        if not uninstall:
-            if os.path.isfile(standard_icon_path):
-                print("* removing {}...".format(standard_icon_path))
-                os.remove(sc_path)
-            # else:
-            #     print("* there's no {}...".format(standard_icon_path))
 
+        # Always remove the old icons first, even if not uninstall:
+
+        if os.path.isfile(desktop_sc_path):
+            print("* removing {}...".format(desktop_sc_path))
+            os.remove(desktop_sc_path)
+        elif uninstall:
+            print("* there is no {}...".format(desktop_sc_path))
+
+        if os.path.isfile(sc_path):
+            # print("* removing shortcut \"{}\"".format(sc_path))
+            # os.remove(desktop_sc_path)
+            print("* uninstalling shortcut \"{}\"".format(sc_path))
+            subprocess.run(u_cmd_parts)
+            # ^ Using only the name also works: sc_name])
+            # ^ Using the XDG uninstall subcommand ensures that the
+            #   icon in the OS application menu gets updated if the
+            #   shortcut was there but different (such as with a
+            #   different version number or otherwise different
+            #   name).
+        elif uninstall:
+            print("* there is no {}...".format(sc_path))
+        # else:
+        #     print("* there's no {}...".format(sc_path))
+        if not uninstall:
             sc_cmd_parts = [desktop_installer, "install", tmp_sc_path]
             install_proc = subprocess.run(sc_cmd_parts)
             inst_msg = "OK"
@@ -215,40 +234,30 @@ def make_shortcut(meta, program_name, uninstall=False):
                 print("* {}...{}".format(" ".join(sc_cmd_parts),
                                          inst_msg))
                 print("  - attempting to copy to {} manually..."
-                      "".format(standard_icon_path))
-                shutil.copyfile(sc_path, standard_icon_path)
+                      "".format(sc_path))
+                shutil.copyfile(desktop_sc_path, sc_path)
             else:
                 print("* {}...{}".format(" ".join(sc_cmd_parts),
                                          inst_msg))
-        else:
-            if os.path.isfile(sc_path):
-                print("* removing {}...".format(sc_path))
-                os.remove(sc_path)
-            else:
-                print("* there is no {}...".format(sc_path))
-            if os.path.isfile(standard_icon_path):
-                print("* removing {}...".format(standard_icon_path))
-                os.remove(standard_icon_path)
-            else:
-                print("* there is no {}...".format(standard_icon_path))
+
     elif sc_ext == "bat":
         if not uninstall:
-            outs = open(sc_path, 'w')
+            outs = open(desktop_sc_path, 'w')
             outs.write('"' + bin_path + '"' + "\n")
             outs.close()
         else:
-            if os.path.isfile(sc_path):
-                print("* removing {}...".format(sc_path))
-                os.remove(sc_path)
+            if os.path.isfile(desktop_sc_path):
+                print("* removing {}...".format(desktop_sc_path))
+                os.remove(desktop_sc_path)
     elif sc_ext == "command":
         if not uninstall:
-            outs = open(sc_path, 'w')
+            outs = open(desktop_sc_path, 'w')
             outs.write('"' + bin_path + '"' + "\n")
             outs.close()
         else:
-            if os.path.isfile(sc_path):
-                print("* removing {}...".format(sc_path))
-                os.remove(sc_path)
+            if os.path.isfile(desktop_sc_path):
+                print("* removing {}...".format(desktop_sc_path))
+                os.remove(desktop_sc_path)
     else:
         msg = "unknown shortcut format " + sc_ext
         push_label("{} shortcut failed since".format(action))
@@ -684,7 +693,7 @@ def refresh():
             dl_but_not_inst_count += 1
     if versions_path is None:
         raise RuntimeError("versions_path is None.")
-   
+
     for installed_name in bw.get_subdir_names(versions_path):
         installed_path = os.path.join(versions_path, installed_name)
         dest_id = installed_name
