@@ -16,6 +16,10 @@ except:
 import platform
 import os
 
+linArch = "x86_64"  # formerly linux64 formerly x86_64
+winArch = "amd64"  # formerly windows64
+darwinArch = ["arm64", "x86_64"]
+# ^ formerly macOS formerly x86_64
 
 def get_subdir_names(folder_path, hidden=False):
     ret = []
@@ -96,7 +100,7 @@ class DownloadPageParser(HTMLParser):
         self.urls = []
         self.verbose = False
         self.must_contain = None
-        self.release_version = "2.92"  # find href /download//blender-*
+        self.release_version = "3.2.0"  # find href /download//blender-*
         self.meta = meta
         self.tag = None
         self.tag_stack = []
@@ -115,23 +119,23 @@ class DownloadPageParser(HTMLParser):
         platform_system = platform.system()
         self.os_name = platform_system.lower()
         self.platform_flag = None
-        self.release_arch = "linux64"
+        self.release_arch = linArch
         self.os_flags = {"Win64":"windows", "Win32":"windows",
                          "linux":"linux", "OSX":"macos"}
         if self.os_name == "darwin":
             self.os_name = "macos"  # change to Blender build naming
             # parent css class of section (above ul): "platform-macOS"
             self.platform_flag = "OSX"
-            self.release_arch = "macOS"  # macOS, formerly x86_64
+            self.release_arch = darwinArch
         elif self.os_name == "windows":
             # parent css class of section (above ul): "platform-win"
-            self.platform_flag = "windows64"
-            self.release_arch = "windows64"
+            self.platform_flag = "windows"
+            self.release_arch = winArch
             # self.release_arch = "win32"
         elif self.os_name == "linux":
             # parent css class of section (above ul): "platform-linux"
             self.platform_flag = "linux"
-            self.release_arch = "linux64"  # formerly x86_64
+            self.release_arch = linArch
             # self.release_arch = "i686"
         else:
             print("WARNING: unknown system '" + platform_system + "'")
@@ -213,8 +217,12 @@ class DownloadPageParser(HTMLParser):
             if remove_win_arch or ("win" not in only_p.lower()):
                 ret = ret.replace("-"+only_p, "")
         if only_a is not None:
-            if remove_win_arch or ("win" not in only_a.lower()):
-                ret = ret.replace("-"+only_a, "")
+            arches = [only_a]
+            if isinstance(only_a, list):
+                arches = only_a
+            for arch in arches:
+                if remove_win_arch or ("win" not in arch.lower()):
+                    ret = ret.replace("-"+arch, "")
         if remove_closers:
             for closer in self.closers:
                 c_i = ret.find(closer)
