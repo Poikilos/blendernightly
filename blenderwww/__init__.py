@@ -372,6 +372,9 @@ class LinkManager:
         route_i = rel_href.find("//")
         print("REL: " + rel_href)
         print("HTML: " + self.html_url)
+        relL = rel_href.lower()
+        if relL.startswith("https://") or relL.startswith("http://"):
+            return rel_href
         if route_i > -1:
             # assume before '//' is route (not real directory) & remove:
             rel_href = rel_href[route_i+2:]

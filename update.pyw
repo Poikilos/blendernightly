@@ -56,13 +56,17 @@ dl_buttons = []
 msg_labels = []
 bin_names = ["blender", "blender.exe"]
 
+
 def push_label(s):
     new_label = tk.Label(master, text=s)
     new_label.pack()
     msg_labels.append(new_label)
     master.update()
 
+
 shown_progress = 0
+
+
 def d_progress(evt):
     global shown_progress
     global pbar
@@ -75,10 +79,16 @@ def d_progress(evt):
                            str(int(evt['loaded']/1024/1024)) + "MB..")
     master.update()
 
+
 def d_done(evt):
-    print("Download finished!")
+    err = evt.get('error')
+    if err is None:
+        print("Download finished!")
+    else:
+        print("Download stopped due to: {}".format(err))
     pbar['value'] = 0
     master.update()
+
 
 def make_shortcut(meta, program_name, uninstall=False):
 
@@ -382,16 +392,18 @@ def d_click(meta, uninstall=False, remove_download=False):
             print(msg)
     if enable_install:
         if fmt is not None:
-            try:
-                if fmt != "zip":
-                    tar = tarfile.open(archive_path, fmt)
-                else:
-                    tar = zipfile.ZipFile(archive_path)
+            # try:
+            if fmt != "zip":
+                tar = tarfile.open(archive_path, fmt)
+            else:
+                tar = zipfile.ZipFile(archive_path)
+            '''
             except:
                 fmt_bad = True
                 msg = "ERROR: archive not " + fmt
                 push_label(msg)
                 print(msg)
+            '''
     if fmt_bad:
         os.remove(archive_path)
         msg = "  - deleting downloaded '" + archive_path + "'..."
