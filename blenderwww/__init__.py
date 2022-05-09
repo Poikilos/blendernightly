@@ -1,18 +1,18 @@
 #!/usr/bin/env python
-python_mr = 3  # major revision
-try:
+from __future__ import print_function
+import sys
+python_mr = sys.version_info.major
+if python_mr > 2:  # try:
     import urllib.request
     request = urllib.request
-except:
-    # python2
-    python_mr = 2
+    from urllib.error import HTTPError
+    from html.parser import HTMLParser
+else:  # except ImportError as ex:
     import urllib2 as urllib
     request = urllib
-try:
-    from html.parser import HTMLParser
-except:
-    # python2
+    from urllib2 import HTTPError
     from HTMLParser import HTMLParser
+
 import platform
 import os
 
@@ -161,7 +161,9 @@ class DownloadPageParser(HTMLParser):
         if href is not None:
             if (self.must_contain is None) or (self.must_contain in href):
                 # print("  - " + href)
-                self.urls.append(href)
+                if href not in self.urls:
+                    if not href.lower().endswith("sha256"):
+                        self.urls.append(href)
             else:
                 pass
                 # print("#  - " + href)
@@ -335,9 +337,17 @@ class LinkManager:
 
     def download(self, file_path, url, cb_progress=None, cb_done=None,
                  chunk_len=16*1024):
-        response = request.urlopen(url)
         evt = {}
         evt['loaded'] = 0
+        try:
+            response = request.urlopen(url)
+        except HTTPError as ex:
+            evt['error'] = str(ex)
+            if cb_done is not None:
+                cb_done(evt)
+            return
+        # ^ raises urllib.error.HTTPError (or Python 2 HTTPError)
+        #   in case of "HTTP Error 404: Not Found"
         # evt['total'] is not implemented (would be from contentlength
         # aka content-length)
         with open(file_path, 'wb') as f:
