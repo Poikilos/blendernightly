@@ -100,7 +100,7 @@ class DownloadPageParser(HTMLParser):
         self.urls = []
         self.verbose = False
         self.must_contain = None
-        self.release_version = "3.2.0"  # find href /download//blender-*
+        self.release_version = "3.3.1"  # find href /download//blender-*
         self.meta = meta
         self.tag = None
         self.tag_stack = []
