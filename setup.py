@@ -59,7 +59,7 @@ setuptools.setup(
     # point-which-calls>
     entry_points={
         'console_scripts': [
-            'blendernightly=update:main',
+            'blendernightly=blendernightly.window_tk:main',
         ],
     },
     install_requires=install_requires,
