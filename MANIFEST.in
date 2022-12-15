@@ -1,0 +1,2 @@
+include blendernightly/*.py
+include update.pyw

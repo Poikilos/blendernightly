@@ -1,1 +1,3 @@
-https://github.com/Hierosoft/hierosoft/archive/refs/heads/main.zip
+# https://github.com/Hierosoft/hierosoft/archive/refs/heads/main.zip
+# but install_requires must use:
+hierosoft-update @ git+https://github.com/Hierosoft/hierosoft@main
