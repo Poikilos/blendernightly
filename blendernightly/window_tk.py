@@ -4,11 +4,15 @@ import os
 import sys
 import platform
 
-repoDir = os.path.dirname(os.path.abspath(__file__))
+MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
+repoDir = os.path.dirname(MODULE_DIR)
 reposDir = os.path.dirname(repoDir)
 tryHRepoDir = os.path.join(reposDir, "hierosoft")
-if os.path.isdir(tryHRepoDir):
+if os.path.isfile(os.path.join(tryHRepoDir, "hierosoft", "__init__.py")):
     sys.path.append(tryHRepoDir)
+
+if __name__ == "__main__":
+    sys.path.insert(0, repoDir)  # find blendernightly if __file__ runs directly
 
 from blendernightly.find_hierosoft import hierosoft
 
@@ -18,13 +22,16 @@ from hierosoft import (
 
 from hierosoft.gui_tk import (
     tk,
-    MainApplication,
+    get_tk,
+    HierosoftUpdateFrame,
 )
+
 
 
 def main():
     # Copied from gui_tk.main:
-    root = None
+    root = get_tk()
+    '''
     try:
         root = tk.Tk()
     except tk.TclError as ex:
@@ -32,6 +39,7 @@ def main():
         echo0()
         echo0("FATAL ERROR: Cannot use tkinter from terminal")
         return 1
+    '''
     Darwin_arch = "x64"  # Blender-specific filename substring
     if platform.system() == "Darwin":
         if "arm64" in platform.platform():
@@ -55,9 +63,11 @@ def main():
         },
         'must_contain': "/blender-",
         'html_url': "https://builder.blender.org/download/",
+        'bin_names': ["blender", "blender.exe"],
     }
-    app = MainApplication(root, options)
-    app.pack(side="top", fill="both", expand=True)
+    parent = root  # set to something else to put updater in a sub-frame
+    app = HierosoftUpdateFrame(parent, root, options)
+    # app.pack(side="top", fill="both", expand=True)
     root.after(500, app.start_refresh)
     root.mainloop()
 
